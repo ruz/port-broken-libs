@@ -1,0 +1,63 @@
+#!/usr/bin/env perl
+
+use 5.010;
+use strict; use warnings; use autodie;
+
+my %opt = (
+    debug => 0,
+);
+
+our %CHECKED;
+our %REPORTED;
+
+main->check_file($_) foreach @ARGV;
+unless ( %REPORTED ) {
+    print "All files are good\n" if $opt{'debug'};
+    exit 0;
+}
+exit 1;
+
+sub check_file {
+    my $self = shift;
+    my $file = shift;
+
+    return 1 if $CHECKED{ $file };
+    $CHECKED{ $file } = 1;
+
+    my @deps = $self->required_libs( $file );
+    foreach my $dep ( @deps ) {
+        if ( -e $dep ) {
+            $self->check_file( $dep );
+        }
+        else {
+            print "$file depends on $dep which doesn't exists\n" if $opt{'debug'};
+            my $port = $self->file_to_port( $file );
+            return 0 if $REPORTED{ $port || $file }++;
+            return 0 if !$port && $opt{'only-ports'};
+            print $port || $file;
+            print "\n";
+            return 0;
+        }
+    }
+    return 1;
+}
+
+sub required_libs {
+    my $self = shift;
+    my $file = shift;
+
+    open my $fh, '-|', 'otool', '-L', $file;
+    my @list = <$fh>;
+    shift @list;
+    return map { s/^\s+//s; s/\s+\(compat.*//s; $_ } @list;
+}
+
+sub file_to_port {
+    my $self = shift;
+    my $file = shift;
+
+    open my $fh, '-|', 'port', 'provides', $file;
+    my $line = <$fh>;
+    return ($line =~ /\Q$file\E is provided by: (.+)/)[0];
+}
+

@@ -1,0 +1,69 @@
+=head1 Fixing broken macports after lib upgrade
+
+Many package maintaing systems upgrade a lib and
+leave existing applications and libs with broken
+dependecy on lib that doesn't exist anymore.
+
+Macports is not an exclusion. Recent upgrade of
+libpng12 to libpng14 result in many broken ports.
+When you try to install/upgrade/run some application
+you get:
+
+    dyld: Library not loaded: /opt/local/lib/libpng12.0.dylib
+
+This was the last drop. I'm tired of looking for
+ports I should rebuild, so I wrote L<a script to find
+broken ports|https://github.com/ruz/port-broken-libs>.
+
+=head2 Usage
+
+It's a good headstart to fix broken ports. Here is what
+I did to fix my system:
+
+    ./port-broken-libs /opt/local/lib/*.dylib
+
+Above command lists ports which have broken dependcy.
+Then you can pipe it to port upgrade:
+
+    ./port-broken-libs /opt/local/lib/*.dylib \
+    | xargs sudo port -pnfuc upgrade --force
+
+A little about port's command line options:
+
+=over 4
+
+=item -p
+
+Don't stop upgrade if some port fails. This may happen
+for variouse reasons.
+
+=item -n
+
+Required part. If you omit this option then upgrade of
+port X may try to upgrade port Y first and that may fail.
+
+=item -f
+
+Tells to ignore previouse attempts to build a port.
+
+=item -uc
+
+It's up to you to decide if you want to clean things after
+and unistall replaced ports.
+
+=item --force
+
+Tells to force rebuild even if there is no newer version
+available.
+
+=back
+
+It took me a few rounds to rebuild most ports. Still
+a few ports were broken and packager couldn't fix them,
+but list was much smaller. I just uninstalled them with
+force applied and installed once again.
+
+After fixing all files in /opt/local/lib dir. I fixed
+/opt/local/{bin,sbin} as well.
+
+That's it. Enjoy.
